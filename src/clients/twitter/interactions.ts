@@ -118,7 +118,8 @@ export class TwitterInteractionClient {
   async handleTwitterInteractions() {
     elizaLogger.log("Checking Twitter interactions");
 
-    const twitterUsername = this.client.profile.username;
+    const twitterUsername =
+      this.client?.profile?.username || process.env.TWITTER_USERNAME;
     try {
       // Check for mentions
       const mentionCandidates = (
@@ -216,6 +217,9 @@ export class TwitterInteractionClient {
       } else {
         elizaLogger.log("No target users configured, processing only mentions");
       }
+      console.log({ mentionCandidates });
+
+      // TODO: Handle replies here for IP check.
 
       // Sort tweet candidates by ID in ascending order
       uniqueTweetCandidates

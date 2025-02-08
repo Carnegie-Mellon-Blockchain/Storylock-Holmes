@@ -91,6 +91,7 @@ export function startTwitterChat(characters: any[], runtime: IAgentRuntime) {
 
       const serverPort = parseInt(settings.SERVER_PORT || "3000");
       const agentId = characters[0].name ?? "Agent";
+      console.log(conversation);
 
       // Get AI response for the tweet
       const response = await fetch(
@@ -138,7 +139,7 @@ export function startTwitterChat(characters: any[], runtime: IAgentRuntime) {
         true
       );
 
-      for await (const notification of rettiwt.user.notifications(1000)) {
+      for await (const notification of rettiwt.user.notifications(10000)) {
         const response = await fetcher.request<IUserNotificationsResponse>(
           EResourceType.USER_NOTIFICATIONS,
           {}

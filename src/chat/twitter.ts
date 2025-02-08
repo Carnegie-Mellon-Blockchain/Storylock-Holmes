@@ -7,6 +7,7 @@ import {
 } from "rettiwt-api";
 import { IAgentRuntime, settings } from "@elizaos/core";
 import readline from "readline";
+import { IPayload } from "../types/IPayload";
 
 interface TweetThread {
   tweetId: string;
@@ -85,7 +86,11 @@ export function startTwitterChat(characters: any[], runtime: IAgentRuntime) {
       const thread = await getFullThread(rettiwt, (value as any).id_str);
 
       // Update lastTweetId to the tweet we're replying to
-      const lastTweet = thread[thread.length - 1];
+      let lastTweet = thread[thread.length - 1];
+      let previousTweet;
+      if (thread.length > 1) {
+        previousTweet = thread[thread.length - 2];
+      }
 
       if (lastTweet.tweetBy.userName === process.env.TWITTER_USERNAME) {
         console.log("Skipping reply to self");
@@ -93,21 +98,61 @@ export function startTwitterChat(characters: any[], runtime: IAgentRuntime) {
       }
 
       let replyData;
-      if (thread.some((tweet) => tweet.tweetMediaUrls?.length > 0)) {
-        let latestMediaUrls = thread.find(
-          (tweet) => tweet.tweetMediaUrls?.length > 0
-        )?.tweetMediaUrls;
+      if (previousTweet?.tweetMediaUrls?.length > 0) {
+        // let latestMediaTweet = thread.find(
+        //   (tweet) => tweet.tweetMediaUrls?.length > 0
+        // );
+        // console.log({ latestMediaTweet });
         // TODO: 1. 用 LLM 檢查他是不是要幫忙 check IP.
         // 如果不是則正常回應 (下方的 else)
         // 如果是，就送去 Kai 的 API，回傳相似。如果有相似超過 threadhold 就打印出相似，沒有就說沒有。
         // Eason 會加上「前端可以註冊 IP」
+        // Check if image is registered as IP via Storylock API
 
-        replyData = [
-          {
-            text: "I will help you register this as IP or check if this already registered as IP.",
-          },
-        ];
+        try {
+          const response = await fetch(
+            `https://storylock.vercel.app/api/x/post/${previousTweet.tweetId}/check`
+          );
 
+          const data = await response.json();
+
+          const filteredResults = data.checkResult.results
+            ?.filter((result: any) => result.score > 0.8)
+            .map((result: any) => ({
+              ...result.payload,
+              score: result.score,
+            })) as IPayload[];
+          console.log({ filteredResults });
+
+          if (filteredResults && filteredResults.length > 0) {
+            replyData = [
+              {
+                text:
+                  "I found some similar content that is registered as IP at Story Protocol:\n\n" +
+                  filteredResults
+                    .map(
+                      (item: IPayload) =>
+                        `- ${Math.round(item.score * 100)}%: ${item.ipUrl}`
+                    )
+                    .join("\n") +
+                  `\n\nCheck it out at https://storylock.vercel.app/xcheck?pid=${previousTweet.tweetId}`,
+              },
+            ];
+          } else {
+            replyData = [
+              {
+                text: `I didn't find any similar registered content.\n\nYou can register this as new IP at https://storylock.vercel.app/xupload?pid=${previousTweet.tweetId}.`,
+              },
+            ];
+          }
+        } catch (error) {
+          console.error("Error checking IP:", error);
+          replyData = [
+            {
+              text: "Sorry, I encountered an error while checking for IP registration.",
+            },
+          ];
+        }
         // TODO: Add a check for the IP address.
       } else {
         let conversation = "";

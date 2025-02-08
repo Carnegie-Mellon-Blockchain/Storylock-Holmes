@@ -26,7 +26,7 @@ async function getFullThread(
 
   async function collectReplies(id: string) {
     const tweet = await rettiwt.tweet.details(id);
-    console.log({ tweet, id });
+
     if (!tweet) return;
 
     let mediaUrls = undefined;
@@ -83,10 +83,9 @@ export function startTwitterChat(characters: any[], runtime: IAgentRuntime) {
       if (is_initial) continue;
 
       const thread = await getFullThread(rettiwt, (value as any).id_str);
-      console.log(thread);
+
       // Update lastTweetId to the tweet we're replying to
       const lastTweet = thread[thread.length - 1];
-      console.log({ lastTweet });
 
       if (lastTweet.tweetBy.userName === process.env.TWITTER_USERNAME) {
         console.log("Skipping reply to self");
@@ -98,14 +97,18 @@ export function startTwitterChat(characters: any[], runtime: IAgentRuntime) {
         let latestMediaUrls = thread.find(
           (tweet) => tweet.tweetMediaUrls?.length > 0
         )?.tweetMediaUrls;
+        // TODO: 1. 用 LLM 檢查他是不是要幫忙 check IP.
+        // 如果不是則正常回應 (下方的 else)
+        // 如果是，就送去 Kai 的 API，回傳相似。如果有相似超過 threadhold 就打印出相似，沒有就說沒有。
+        // Eason 會加上「前端可以註冊 IP」
 
-        replyData = {
-          messages: [
-            {
-              text: "I will help you register this as IP or check if this already registered as IP.",
-            },
-          ],
-        };
+        replyData = [
+          {
+            text: "I will help you register this as IP or check if this already registered as IP.",
+          },
+        ];
+
+        // TODO: Add a check for the IP address.
       } else {
         let conversation = "";
         for (const tweet of thread) {
@@ -161,21 +164,13 @@ export function startTwitterChat(characters: any[], runtime: IAgentRuntime) {
         true
       );
 
-      // setInterval(async () => {
-      //   const tweets = await rettiwt.tweet.search(
-      //     `@${process.env.TWITTER_USERNAME}`,
-      //     10
-      //   );
-      //   console.log({ tweets });
-      // }, 10000);
-
-      // for await (const notification of rettiwt.user.notifications(10000)) {
-      //   const response = await fetcher.request<IUserNotificationsResponse>(
-      //     EResourceType.USER_NOTIFICATIONS,
-      //     {}
-      //   );
-      //   await handleNewTweets((response.globalObjects as any).tweets);
-      // }
+      for await (const notification of rettiwt.user.notifications(10000)) {
+        const response = await fetcher.request<IUserNotificationsResponse>(
+          EResourceType.USER_NOTIFICATIONS,
+          {}
+        );
+        await handleNewTweets((response.globalObjects as any).tweets);
+      }
     } catch (error) {
       console.error("Error in notification stream:", error);
       // Restart the stream on error

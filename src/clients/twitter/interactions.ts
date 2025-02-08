@@ -217,7 +217,6 @@ export class TwitterInteractionClient {
       } else {
         elizaLogger.log("No target users configured, processing only mentions");
       }
-      console.log({ mentionCandidates });
 
       // TODO: Handle replies here for IP check.
 
